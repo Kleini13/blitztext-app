@@ -16,12 +16,22 @@ final class EmojiTextWorkflow: Workflow {
     private let settings: EmojiTextSettings
     private let customTerms: [String]
     private let language: String
+    private let backend: TranscriptionBackend
+    private let localModelName: String
     private var processingTask: Task<Void, Never>?
 
-    init(settings: EmojiTextSettings, customTerms: [String] = [], language: String = "de") {
+    init(
+        settings: EmojiTextSettings,
+        customTerms: [String] = [],
+        language: String = "de",
+        backend: TranscriptionBackend = .remote,
+        localModelName: String = LocalTranscriptionService.recommendedFastModelName
+    ) {
         self.settings = settings
         self.customTerms = customTerms
         self.language = language
+        self.backend = backend
+        self.localModelName = localModelName
     }
 
     // MARK: - Recording State
@@ -64,7 +74,7 @@ final class EmojiTextWorkflow: Workflow {
         phase = .idle
     }
 
-    // MARK: - Two-Phase Processing: Whisper -> Emoji
+    // MARK: - Two-Phase Processing: Transkription -> Emoji
 
     private func processRecording() {
         guard let url = recorder.recordingURL else {
@@ -72,7 +82,7 @@ final class EmojiTextWorkflow: Workflow {
             return
         }
 
-        phase = .running("Wird transkribiert ...")
+        phase = .running(backend == .local ? "Wird lokal transkribiert ..." : "Wird transkribiert ...")
         let recordingDuration = recorder.lastRecordingDuration
         let vocabularyHints = recordingDuration >= 0.9 ? customTerms : []
 
@@ -82,11 +92,13 @@ final class EmojiTextWorkflow: Workflow {
             }
 
             do {
-                // Phase 1: Whisper transcription
+                // Phase 1: Transkription (lokal via WhisperKit oder remote via OpenAI)
                 let rawText = try await TranscriptionService.transcribe(
                     audioURL: url,
+                    backend: backend,
                     customTerms: vocabularyHints,
-                    language: language
+                    language: language,
+                    localModelName: localModelName
                 )
                 let cleanedRawText = TranscriptionQualityService.cleanedTranscript(rawText)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleanedRawText, recordingDuration: recordingDuration) else {
@@ -104,10 +116,6 @@ final class EmojiTextWorkflow: Workflow {
                     settings: settings
                 )
                 let cleanedResult = TranscriptionQualityService.cleanedTranscript(result)
-                guard cleanedResult != "KEINE_AUFNAHME_ERKANNT" else {
-                    phase = .error("Keine Aufnahme erkannt.")
-                    return
-                }
                 phase = .done(cleanedResult)
                 onOutput?(cleanedResult)
             } catch {

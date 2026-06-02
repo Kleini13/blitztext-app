@@ -40,6 +40,7 @@ final class AppState {
         didSet {
             saveSettings()
             prewarmLocalTranscriptionIfNeeded()
+            applyHotkeyBindings()
         }
     }
     var transcriptionSettings: TranscriptionSettings {
@@ -54,6 +55,9 @@ final class AppState {
     var emojiTextSettings: EmojiTextSettings {
         didSet { saveSettings() }
     }
+    var conceptSettings: ConceptSettings {
+        didSet { saveSettings() }
+    }
 
     // Hotkeys
     let hotkeyService = HotkeyService()
@@ -61,6 +65,14 @@ final class AppState {
     // Computed
     var isConfigured: Bool {
         KeychainService.isConfigured || !LocalTranscriptionService.installedModels().isEmpty
+    }
+    /// Anthropic-Key vorhanden – Voraussetzung für die Rewrite-Workflows (Claude).
+    var hasAnthropicKey: Bool {
+        KeychainService.load(key: .anthropicAPIKey) != nil
+    }
+    /// Transkription möglich: im lokalen Modus per installiertem Modell, sonst per OpenAI-Key.
+    var canTranscribe: Bool {
+        appSettings.secureLocalModeEnabled ? selectedLocalModelIsInstalled : KeychainService.isConfigured
     }
     var shouldShowOnboarding: Bool {
         !isConfigured && !appSettings.hasSeenOnboarding
@@ -76,9 +88,42 @@ final class AppState {
         self.textImprovementSettings = Self.loadTextImprovementSettings()
         self.dampfAblassenSettings = Self.loadDampfAblassenSettings()
         self.emojiTextSettings = Self.loadEmojiTextSettings()
+        self.conceptSettings = Self.loadConceptSettings()
         refreshAccessibilityPermission()
         autoSelectFastLocalModelIfNeeded()
         prewarmLocalTranscriptionIfNeeded()
+        applyHotkeyBindings()
+    }
+
+    // MARK: - Hotkeys
+
+    /// Überträgt die konfigurierten Tastenkombis an den HotkeyService.
+    func applyHotkeyBindings() {
+        var map: [WorkflowType: HotkeyCombo] = [:]
+        for type in WorkflowType.allCases {
+            map[type] = appSettings.combo(for: type)
+        }
+        hotkeyService.updateBindings(map)
+    }
+
+    /// Setzt die Kombi für einen Workflow; räumt Konflikte (gleiche Kombi woanders) auf "Kein" ab.
+    func setHotkeyCombo(_ combo: HotkeyCombo, for type: WorkflowType) {
+        var bindings = appSettings.hotkeyBindings
+        if combo != .none {
+            for other in WorkflowType.allCases where other != type {
+                if appSettings.combo(for: other) == combo {
+                    bindings[other.rawValue] = HotkeyCombo.none
+                }
+            }
+        }
+        bindings[type.rawValue] = combo
+        appSettings.hotkeyBindings = bindings
+    }
+
+    /// Anzeige-Label der konfigurierten Kombi (leer, wenn kein Hotkey).
+    func hotkeyLabel(for type: WorkflowType) -> String {
+        let combo = appSettings.combo(for: type)
+        return combo == .none ? "" : combo.shortLabel
     }
 
     // MARK: - Custom Display Names
@@ -93,6 +138,9 @@ final class AppState {
             return name.isEmpty ? type.displayName : name
         case .emojiText:
             let name = emojiTextSettings.customName.trimmingCharacters(in: .whitespaces)
+            return name.isEmpty ? type.displayName : name
+        case .concept:
+            let name = conceptSettings.customName.trimmingCharacters(in: .whitespaces)
             return name.isEmpty ? type.displayName : name
         default:
             return type.displayName
@@ -111,9 +159,12 @@ final class AppState {
             return "Online: Whisper über OpenAI."
         case .localTranscription:
             return "Nur lokal. Kein Server."
-        case .textImprover, .dampfAblassen, .emojiText:
-            if appSettings.secureLocalModeEnabled {
-                return "Im lokalen Modus pausiert."
+        case .textImprover, .dampfAblassen, .emojiText, .concept:
+            if !hasAnthropicKey {
+                return "Anthropic API Key fehlt."
+            }
+            if appSettings.secureLocalModeEnabled && !selectedLocalModelIsInstalled {
+                return "Lokales WhisperKit-Modell fehlt."
             }
             return type.subtitle
         }
@@ -188,7 +239,9 @@ final class AppState {
         case .textImprover:
             let workflow = TextImprovementWorkflow(
                 settings: textImprovementSettings,
-                language: transcriptionSettings.language
+                language: transcriptionSettings.language,
+                backend: appSettings.secureLocalModeEnabled ? .local : .remote,
+                localModelName: selectedLocalModelName
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -198,7 +251,9 @@ final class AppState {
             let workflow = DampfAblassenWorkflow(
                 settings: dampfAblassenSettings,
                 customTerms: textImprovementSettings.customTerms,
-                language: transcriptionSettings.language
+                language: transcriptionSettings.language,
+                backend: appSettings.secureLocalModeEnabled ? .local : .remote,
+                localModelName: selectedLocalModelName
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -208,7 +263,21 @@ final class AppState {
             let workflow = EmojiTextWorkflow(
                 settings: emojiTextSettings,
                 customTerms: textImprovementSettings.customTerms,
-                language: transcriptionSettings.language
+                language: transcriptionSettings.language,
+                backend: appSettings.secureLocalModeEnabled ? .local : .remote,
+                localModelName: selectedLocalModelName
+            )
+            configureWorkflowHandlers(workflow)
+            activeWorkflow = workflow
+            workflow.start()
+
+        case .concept:
+            let workflow = ConceptWorkflow(
+                settings: conceptSettings,
+                customTerms: textImprovementSettings.customTerms,
+                language: transcriptionSettings.language,
+                backend: appSettings.secureLocalModeEnabled ? .local : .remote,
+                localModelName: selectedLocalModelName
             )
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
@@ -226,8 +295,9 @@ final class AppState {
             return appSettings.secureLocalModeEnabled
                 ? selectedLocalModelIsInstalled
                 : KeychainService.isConfigured
-        case .textImprover, .dampfAblassen, .emojiText:
-            return !appSettings.secureLocalModeEnabled && KeychainService.isConfigured
+        case .textImprover, .dampfAblassen, .emojiText, .concept:
+            // Rewrite = Transkription (lokal oder remote) + Claude. Funktioniert auch im lokalen Modus.
+            return canTranscribe && hasAnthropicKey
         }
     }
 
@@ -375,7 +445,8 @@ final class AppState {
             transcription: transcriptionSettings,
             textImprovement: textImprovementSettings,
             dampfAblassen: dampfAblassenSettings,
-            emojiText: emojiTextSettings
+            emojiText: emojiTextSettings,
+            concept: conceptSettings
         )
         if let data = try? JSONEncoder().encode(container) {
             try? data.write(to: Self.settingsURL)
@@ -400,6 +471,10 @@ final class AppState {
 
     private static func loadEmojiTextSettings() -> EmojiTextSettings {
         loadContainer()?.emojiText ?? EmojiTextSettings()
+    }
+
+    private static func loadConceptSettings() -> ConceptSettings {
+        loadContainer()?.concept ?? ConceptSettings()
     }
 
     private static func loadContainer() -> SettingsContainer? {
@@ -540,18 +615,23 @@ final class AppState {
     ) {
         let frontmostPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
-        if let target {
-            if frontmostPid == target.processIdentifier {
+        // Falls beim Start kein Ziel erfasst wurde (z.B. Popover war im Fokus),
+        // zur Einfügezeit das aktuell aktive Fremd-Programm als Ziel verwenden.
+        let effectiveTarget = target ?? captureCurrentFrontmostApp()
+
+        if let effectiveTarget {
+            if frontmostPid == effectiveTarget.processIdentifier {
                 performPaste()
+                // Zwischenablage NICHT zurücksetzen – neuer Text bleibt für manuelles Cmd+V verfügbar.
                 return
             }
 
-            target.application.activate(options: [])
-        } else {
-            return
+            effectiveTarget.application.activate(options: [])
         }
 
         guard attemptsRemaining > 0 else {
+            // Auto-Paste nicht möglich: Der neue Text bleibt in der Zwischenablage
+            // und kann manuell (Cmd+V) eingefügt werden.
             return
         }
 
@@ -603,6 +683,7 @@ private struct SettingsContainer: Codable {
     var textImprovement: TextImprovementSettings
     var dampfAblassen: DampfAblassenSettings?
     var emojiText: EmojiTextSettings?
+    var concept: ConceptSettings?
 }
 
 // MARK: - Notification for Popover Dismissal

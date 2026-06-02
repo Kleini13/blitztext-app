@@ -57,17 +57,21 @@ private struct SectionLabel: View {
 
 struct AccessSettingsView: View {
     private static let openAIAPIKeyPattern = #"^sk-[A-Za-z0-9_-]{20,}$"#
+    private static let anthropicAPIKeyPattern = #"^sk-ant-[A-Za-z0-9_-]{20,}$"#
 
     @Bindable var appState: AppState
 
     private enum FieldFocus {
         case openAIAPIKey
+        case anthropicAPIKey
     }
 
     @State private var launchAtLoginService = LaunchAtLoginService()
     @State private var currentInstallLocation = BlitztextInstallLocationService.currentInstallLocation
     @State private var openAIAPIKey = ""
     @State private var editingAPIKey = false
+    @State private var anthropicAPIKey = ""
+    @State private var editingAnthropicKey = false
     @State private var saved = false
     @State private var saveErrorText: String?
     @State private var installActionErrorText: String?
@@ -154,7 +158,54 @@ struct AccessSettingsView: View {
                     }
                 }
 
-                Text("Dein Key bleibt lokal in dieser App. Audio und Text werden direkt an die OpenAI API gesendet.")
+                Text("Optional. Nur nötig für OpenAI-Whisper-Transkription (Online-Modus). Im lokalen Modus nicht erforderlich.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    SectionLabel(text: "Anthropic API Key")
+                    Spacer()
+                    if appState.hasValue(for: .anthropicAPIKey) && !editingAnthropicKey {
+                        Button("Aendern") { editingAnthropicKey = true }
+                            .font(.system(size: 10, weight: .medium))
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.blue)
+                    }
+                }
+
+                if appState.hasValue(for: .anthropicAPIKey) && !editingAnthropicKey {
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.green.opacity(0.8))
+                        Text(appState.apiKeyDisplayValue(for: .anthropicAPIKey))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color(nsColor: .controlBackgroundColor))
+                    )
+                } else {
+                    HStack(spacing: 8) {
+                        SecureField("sk-ant-...", text: $anthropicAPIKey)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11.5))
+                            .focused($focusedField, equals: .anthropicAPIKey)
+
+                        Button("Einfuegen") {
+                            pasteAnthropicKeyFromClipboard()
+                        }
+                        .buttonStyle(SubtleButtonStyle())
+                    }
+                }
+
+                Text("Für das Umschreiben/Verbessern der Texte (Claude). Dein Key bleibt lokal in dieser App; Text wird direkt an die Anthropic API gesendet.")
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -359,15 +410,17 @@ struct AccessSettingsView: View {
             launchAtLoginService.refresh()
             refreshInstallState()
             load()
-            if !appState.hasValue(for: .openAIAPIKey) {
-                editingAPIKey = true
-                focusedField = .openAIAPIKey
+            editingAPIKey = !appState.hasValue(for: .openAIAPIKey)
+            editingAnthropicKey = !appState.hasValue(for: .anthropicAPIKey)
+            if !appState.hasValue(for: .anthropicAPIKey) {
+                focusedField = .anthropicAPIKey
             }
         }
     }
 
     private func load() {
         openAIAPIKey = ""
+        anthropicAPIKey = ""
     }
 
     private func save() {
@@ -375,13 +428,10 @@ struct AccessSettingsView: View {
         cleanupStatusText = nil
         cleanupErrorText = nil
         KeychainService.invalidateCache()
-        let trimmedAPIKey = openAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if editingAPIKey || !appState.hasValue(for: .openAIAPIKey) {
-            guard !trimmedAPIKey.isEmpty else {
-                saveErrorText = "Bitte trage deinen OpenAI API Key ein."
-                return
-            }
+        // OpenAI-Key ist optional (nur für Online-Whisper). Nur speichern, wenn etwas eingetragen wurde.
+        let trimmedAPIKey = openAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if editingAPIKey && !trimmedAPIKey.isEmpty {
             do {
                 try KeychainService.save(key: .openAIAPIKey, value: trimmedAPIKey)
                 openAIAPIKey = ""
@@ -392,11 +442,20 @@ struct AccessSettingsView: View {
             }
         }
 
-        KeychainService.invalidateCache()
-        if !appState.hasValue(for: .openAIAPIKey) {
-            saveErrorText = "OpenAI API Key wurde nicht persistent gespeichert. Bitte App neu starten und erneut versuchen."
-            return
+        // Anthropic-Key für das Umschreiben (Claude). Nur speichern, wenn etwas eingetragen wurde.
+        let trimmedAnthropicKey = anthropicAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if editingAnthropicKey && !trimmedAnthropicKey.isEmpty {
+            do {
+                try KeychainService.save(key: .anthropicAPIKey, value: trimmedAnthropicKey)
+                anthropicAPIKey = ""
+                editingAnthropicKey = false
+            } catch {
+                saveErrorText = "Anthropic API Key konnte nicht gespeichert werden."
+                return
+            }
         }
+
+        KeychainService.invalidateCache()
 
         withAnimation(.easeInOut(duration: 0.2)) { saved = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -418,6 +477,24 @@ struct AccessSettingsView: View {
         }
 
         openAIAPIKey = trimmedKey
+        NSPasteboard.general.clearContents()
+        saveErrorText = nil
+    }
+
+    private func pasteAnthropicKeyFromClipboard() {
+        guard let rawText = NSPasteboard.general.string(forType: .string) else {
+            saveErrorText = "Zwischenablage enthält keinen Text."
+            return
+        }
+
+        let firstLine = rawText.components(separatedBy: .newlines).first ?? rawText
+        let trimmedKey = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedKey.range(of: Self.anthropicAPIKeyPattern, options: .regularExpression) != nil else {
+            saveErrorText = "Zwischenablage enthält keinen plausiblen Anthropic API Key."
+            return
+        }
+
+        anthropicAPIKey = trimmedKey
         NSPasteboard.general.clearContents()
         saveErrorText = nil
     }
@@ -481,6 +558,8 @@ struct AccessSettingsView: View {
         if deleteLocalDataOnCleanup {
             openAIAPIKey = ""
             editingAPIKey = true
+            anthropicAPIKey = ""
+            editingAnthropicKey = true
         }
 
         if report.failedItems.isEmpty {
@@ -597,15 +676,27 @@ struct CustomizeSettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: "Tastenk\u{00FC}rzel")
 
+                Text("Weise jedem Modus eine Tastenkombination zu. Mehrfach vergebene Kombis werden automatisch beim anderen Modus entfernt.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 VStack(spacing: 6) {
                     ForEach(WorkflowType.mainMenuCases) { type in
-                        HStack {
-                            Text(type.hotkeyLabel)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 124, alignment: .leading)
+                        HStack(spacing: 8) {
                             Text(appState.displayName(for: type))
                                 .font(.system(size: 11.5, weight: .medium))
+                                .frame(width: 130, alignment: .leading)
+                            Picker("", selection: Binding(
+                                get: { appState.appSettings.combo(for: type) },
+                                set: { appState.setHotkeyCombo($0, for: type) }
+                            )) {
+                                ForEach(HotkeyCombo.allCases) { combo in
+                                    Text(combo.displayName).tag(combo)
+                                }
+                            }
+                            .labelsHidden()
+                            .controlSize(.small)
                             Spacer()
                         }
                     }
@@ -725,6 +816,26 @@ struct CustomizeSettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                }
+            }
+
+            // MARK: Blitztext Konzept
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: "Blitztext Konzept")
+
+                Text("Macht aus frei Gesprochenem ein strukturiertes Konzept (Titel, Abs\u{00E4}tze, Aufz\u{00E4}hlungen). Bleibt nah am Gesagten, ordnet und gl\u{00E4}ttet nur.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Kontext (optional)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+
+                    TextField("z.B. \"Projektkonzept\", \"Sitzungsnotiz\"", text: $appState.conceptSettings.context)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 11))
                 }
             }
 

@@ -9,11 +9,11 @@ enum LLMError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notConfigured:
-            return "OpenAI API Key fehlt. Bitte in den Einstellungen hinterlegen."
+            return "Anthropic API Key fehlt. Bitte in den Einstellungen hinterlegen."
         case .networkError(let msg):
             return "Verbindungsproblem: \(msg)"
         case .apiError(let msg):
-            return "Fehler von OpenAI: \(msg)"
+            return "Fehler von Anthropic: \(msg)"
         case .noContent:
             return "Keine Antwort erhalten. Bitte nochmal versuchen."
         }
@@ -21,34 +21,41 @@ enum LLMError: LocalizedError {
 }
 
 enum RewriteModel: String {
-    case fastEdit = "gpt-4o-mini"
-    case rageMode = "gpt-4o"
+    case fastEdit = "claude-haiku-4-5-20251001"
+    case rageMode = "claude-sonnet-4-6"
 }
 
-private struct OpenAIChatRequest: Encodable {
+private struct AnthropicMessagesRequest: Encodable {
     struct Message: Encodable {
         let role: String
         let content: String
     }
 
     let model: String
+    let maxTokens: Int
+    let system: String
     let messages: [Message]
     let temperature: Double
+
+    enum CodingKeys: String, CodingKey {
+        case model
+        case maxTokens = "max_tokens"
+        case system
+        case messages
+        case temperature
+    }
 }
 
-private struct OpenAIChatResponse: Decodable {
-    struct Choice: Decodable {
-        struct Message: Decodable {
-            let content: String?
-        }
-
-        let message: Message?
+private struct AnthropicMessagesResponse: Decodable {
+    struct ContentBlock: Decodable {
+        let type: String?
+        let text: String?
     }
 
-    let choices: [Choice]?
+    let content: [ContentBlock]?
 }
 
-private struct OpenAIErrorResponse: Decodable {
+private struct AnthropicErrorResponse: Decodable {
     struct APIError: Decodable {
         let message: String?
     }
@@ -57,7 +64,9 @@ private struct OpenAIErrorResponse: Decodable {
 }
 
 enum LLMService {
-    private static let chatCompletionsURL = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private static let messagesURL = URL(string: "https://api.anthropic.com/v1/messages")!
+    private static let anthropicVersion = "2023-06-01"
+    private static let maxTokens = 4096
 
     private static let session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
@@ -94,6 +103,19 @@ enum LLMService {
         )
     }
 
+    static func generateConcept(
+        text: String,
+        settings: ConceptSettings,
+        model: RewriteModel = .rageMode
+    ) async throws -> String {
+        try await complete(
+            text: text,
+            systemPrompt: buildConceptSystemPrompt(context: settings.context),
+            model: model,
+            temperature: 0.3
+        )
+    }
+
     static func addEmojis(
         text: String,
         settings: EmojiTextSettings,
@@ -113,22 +135,24 @@ enum LLMService {
         model: RewriteModel,
         temperature: Double
     ) async throws -> String {
-        guard let apiKey = KeychainService.load(key: .openAIAPIKey) else {
+        guard let apiKey = KeychainService.load(key: .anthropicAPIKey) else {
             throw LLMError.notConfigured
         }
 
-        let payload = OpenAIChatRequest(
+        let payload = AnthropicMessagesRequest(
             model: model.rawValue,
+            maxTokens: maxTokens,
+            system: systemPrompt,
             messages: [
-                .init(role: "system", content: systemPrompt),
                 .init(role: "user", content: text),
             ],
             temperature: temperature
         )
 
-        var request = URLRequest(url: chatCompletionsURL)
+        var request = URLRequest(url: messagesURL)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue(anthropicVersion, forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 45
         request.httpBody = try JSONEncoder().encode(payload)
@@ -140,20 +164,48 @@ enum LLMService {
         }
 
         guard httpResponse.statusCode == 200 else {
-            throw LLMError.apiError(openAIErrorMessage(from: data) ?? "Status \(httpResponse.statusCode)")
+            throw LLMError.apiError(anthropicErrorMessage(from: data) ?? "Status \(httpResponse.statusCode)")
         }
 
-        let result = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
-        guard let content = result.choices?.first?.message?.content,
-              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let result = try JSONDecoder().decode(AnthropicMessagesResponse.self, from: data)
+        let content = result.content?
+            .compactMap { $0.type == "text" ? $0.text : nil }
+            .joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !content.isEmpty else {
             throw LLMError.noContent
         }
 
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return content
     }
 
-    private static func openAIErrorMessage(from data: Data) -> String? {
-        (try? JSONDecoder().decode(OpenAIErrorResponse.self, from: data))?.error?.message
+    private static func anthropicErrorMessage(from data: Data) -> String? {
+        (try? JSONDecoder().decode(AnthropicErrorResponse.self, from: data))?.error?.message
+    }
+
+    private static func buildConceptSystemPrompt(context: String) -> String {
+        var prompt = """
+        Du erhältst ein frei gesprochenes, oft sprunghaftes Transkript. Mache daraus ein klar strukturiertes Konzept als reinen Text.
+
+        Regeln:
+        - Bleibe nah am Gesprochenen: ordnen, gruppieren, Wiederholungen und Füllwörter entfernen, Grammatik und Satzbau glätten. Füge KEINE neuen Inhalte, Fakten oder Punkte hinzu, die nicht gesagt wurden.
+        - Erkenne die Themen-/Aufgabenbereiche im Gesprochenen und gliedere danach.
+        - Format (einfacher Klartext, KEIN Markdown):
+          - Beginne mit einer kurzen Überschrift/Titelzeile.
+          - Danach ein zusammenhängender Textblock zu diesem Thema.
+          - Dann eine Leerzeile, danach bei Bedarf die nächste Überschrift und ihr Textblock, usw.
+          - Aufzählungen beginnen mit "– " (Gedankenstrich und Leerzeichen), jede auf einer eigenen Zeile.
+        - Keine Sonderzeichen zur Auszeichnung (kein #, *, **, keine Nummerierung, ausser sie wurde so gesprochen).
+        - Schreibe in der Sprache des Transkripts.
+        - Gib NUR das fertige Konzept aus, keine Einleitung, keine Erklärungen, keine Meta-Kommentare.
+        """
+
+        let trimmedContext = context.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedContext.isEmpty {
+            prompt += "\n\nKontext zum Inhalt (nur zur Orientierung, nicht ausgeben): \(trimmedContext)"
+        }
+
+        return prompt
     }
 
     private static func buildEmojiSystemPrompt(density: EmojiTextSettings.EmojiDensity) -> String {

@@ -8,6 +8,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
     case textImprover
     case dampfAblassen
     case emojiText
+    case concept
 
     var id: String { rawValue }
 
@@ -22,6 +23,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .textImprover: return "Blitztext+"
         case .dampfAblassen: return "Blitztext $%&!"
         case .emojiText: return "Blitztext :)"
+        case .concept: return "Blitztext Konzept"
         }
     }
 
@@ -32,6 +34,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .textImprover: return "text.badge.checkmark"
         case .dampfAblassen: return "flame.fill"
         case .emojiText: return "face.smiling"
+        case .concept: return "list.bullet.rectangle"
         }
     }
 
@@ -42,6 +45,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .textImprover: return "Geschrieben sprechen."
         case .dampfAblassen: return "Frust rein. Entspannt raus."
         case .emojiText: return "Text rein. Emojis dazu."
+        case .concept: return "Sprich frei. Konzept raus."
         }
     }
 
@@ -52,6 +56,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .textImprover: return "fn + Control"
         case .dampfAblassen: return "fn + Option"
         case .emojiText: return "fn + Cmd"
+        case .concept: return "fn + Ctrl + Opt"
         }
     }
 
@@ -62,6 +67,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .textImprover: return "purple"
         case .dampfAblassen: return "orange"
         case .emojiText: return "cyan"
+        case .concept: return "teal"
         }
     }
 }
@@ -122,19 +128,37 @@ struct AppSettings: Codable {
     var secureLocalModeEnabled: Bool = false
     var selectedLocalTranscriptionModelName: String = LocalTranscriptionService.recommendedFastModelName
     var hasAutoSelectedFastLocalModel: Bool = false
+    /// Pro Workflow (rawValue) eine zugewiesene Tastenkombi.
+    var hotkeyBindings: [String: HotkeyCombo] = AppSettings.defaultHotkeyBindings
+
+    static let defaultHotkeyBindings: [String: HotkeyCombo] = [
+        WorkflowType.transcription.rawValue: .fnShift,
+        WorkflowType.localTranscription.rawValue: .fnShiftControl,
+        WorkflowType.textImprover.rawValue: .fnControl,
+        WorkflowType.dampfAblassen.rawValue: .fnOption,
+        WorkflowType.emojiText.rawValue: .fnCommand,
+        WorkflowType.concept.rawValue: .fnControlOption,
+    ]
+
+    /// Konfigurierte Kombi für einen Workflow (oder Default, sonst keine).
+    func combo(for type: WorkflowType) -> HotkeyCombo {
+        hotkeyBindings[type.rawValue] ?? AppSettings.defaultHotkeyBindings[type.rawValue] ?? .none
+    }
 
     init(
         hotkeyMode: HotkeyMode = .hold,
         hasSeenOnboarding: Bool = false,
         secureLocalModeEnabled: Bool = false,
         selectedLocalTranscriptionModelName: String = LocalTranscriptionService.recommendedFastModelName,
-        hasAutoSelectedFastLocalModel: Bool = false
+        hasAutoSelectedFastLocalModel: Bool = false,
+        hotkeyBindings: [String: HotkeyCombo] = AppSettings.defaultHotkeyBindings
     ) {
         self.hotkeyMode = hotkeyMode
         self.hasSeenOnboarding = hasSeenOnboarding
         self.secureLocalModeEnabled = secureLocalModeEnabled
         self.selectedLocalTranscriptionModelName = selectedLocalTranscriptionModelName
         self.hasAutoSelectedFastLocalModel = hasAutoSelectedFastLocalModel
+        self.hotkeyBindings = hotkeyBindings
     }
 
     enum CodingKeys: String, CodingKey {
@@ -143,6 +167,7 @@ struct AppSettings: Codable {
         case secureLocalModeEnabled
         case selectedLocalTranscriptionModelName
         case hasAutoSelectedFastLocalModel
+        case hotkeyBindings
     }
 
     init(from decoder: Decoder) throws {
@@ -158,6 +183,9 @@ struct AppSettings: Codable {
             Bool.self,
             forKey: .hasAutoSelectedFastLocalModel
         ) ?? false
+        // Gespeicherte Zuweisungen über die Defaults legen, damit neue Workflows immer eine Default-Kombi haben.
+        let stored = try container.decodeIfPresent([String: HotkeyCombo].self, forKey: .hotkeyBindings) ?? [:]
+        hotkeyBindings = AppSettings.defaultHotkeyBindings.merging(stored) { _, new in new }
     }
 }
 
@@ -174,6 +202,12 @@ struct TranscriptionSettings: Codable {
 
 struct DampfAblassenSettings: Codable {
     var systemPrompt: String = "Du erhältst ein emotional gesprochenes Transkript. Erkenne zuerst das eigentliche Ziel, Anliegen und den wahren Frust der Person. Formuliere daraus eine klare, respektvolle und wirksame Nachricht, mit der die Person ihr Ziel eher erreicht. Bewahre relevante Fakten, konkrete Probleme, Grenzen, Erwartungen und die nötige Dringlichkeit. Entferne Beleidigungen, Drohungen, Sarkasmus, Unterstellungen und unnötige Eskalation. Wenn mehrere Vorwürfe genannt werden, verdichte sie auf die entscheidenden Kernpunkte. Der Ton soll ruhig, menschlich, bestimmt und lösungsorientiert sein. Gib NUR die fertige Nachricht zurück."
+    var customName: String = ""
+}
+
+struct ConceptSettings: Codable {
+    /// Optionaler Zusatz-Kontext, der Claude beim Strukturieren hilft (z.B. "Projektkonzept", "Sitzungsnotiz").
+    var context: String = ""
     var customName: String = ""
 }
 

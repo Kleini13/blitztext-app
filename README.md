@@ -6,7 +6,17 @@ It is intentionally small and unfinished. The goal is to make a real workflow vi
 
 This is a learning and experimentation project, not a polished product.
 
-> Preview status: bring your own OpenAI API key, no hosted backend, no warranty, no support guarantee.
+> Preview status: bring your own API key(s), no hosted backend, no warranty, no support guarantee.
+
+## Changes in This Fork
+
+This fork (maintained by Atelier 26) adapts the original preview for a fully local transcription + Claude rewriting workflow. See [CHANGELOG.md](CHANGELOG.md) for details. Highlights:
+
+- **Rewriting runs on Claude (Anthropic) instead of OpenAI.** All text workflows (Blitztext+, $%&!, :), and the new Konzept mode) call the Anthropic Messages API.
+- **New mode "Blitztext Konzept"** — turns free, rambling speech into a clean, structured concept (title, grouped paragraphs, `–` bullet lists). Stays close to what was said; only organizes and smooths.
+- **Configurable hotkeys** — assign any allowed `fn`-combo (or none) to each mode in Settings → Tastenkürzel.
+- **Transcription can be fully local** (WhisperKit/CoreML) so no OpenAI key is needed; OpenAI stays optional for online Whisper.
+- **Paste fixes** — the recognized text is reliably pasted into the active app and stays on the clipboard for manual `Cmd+V`.
 
 ## What It Does
 
@@ -14,14 +24,15 @@ This is a learning and experimentation project, not a polished product.
 - **Blitztext+**: record speech, transcribe it, then turn the rough draft into cleaner writing.
 - **Blitztext $%&!**: turn frustrated speech into a calmer message.
 - **Blitztext :)**: add fitting emojis to dictated text.
+- **Blitztext Konzept**: turn free-form, rambling speech into a structured concept (title, paragraphs, bullet points).
 
 ## Important Preview Notes
 
 - macOS only.
-- Bring your own OpenAI API key.
+- Bring your own API key(s): an **Anthropic** key for rewriting, and optionally an **OpenAI** key for online Whisper transcription.
 - No hosted Blitztext backend is included or provided.
-- In online mode, audio and text are sent directly from the app to the OpenAI API.
-- Optional local transcription via WhisperKit/CoreML if you install a compatible model locally.
+- In online mode, audio/text are sent directly from the app to the provider API (OpenAI for transcription, Anthropic for rewriting).
+- Transcription can run fully local via WhisperKit/CoreML if you install a compatible model — then no OpenAI key is needed.
 - `./build.sh` creates a locally ad-hoc-signed development app. No notarized release binary is provided.
 - Not production ready.
 - No warranty and no support guarantee.
@@ -48,10 +59,9 @@ The intent is not to ship a one-click finished app. The intent is to make a real
 - macOS 14 or newer
 - Xcode 16 or newer (Swift 5.10), with Command Line Tools installed and selected for `xcodebuild`
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate the Xcode project
-- For online transcription and rewriting: an OpenAI API key with access to:
-  - `whisper-1` for transcription
-  - `gpt-4o-mini` and optionally `gpt-4o` for rewriting
-- For local-only transcription: a WhisperKit CoreML model in:
+- For rewriting (Blitztext+, $%&!, :), Konzept): an **Anthropic API key** with access to Claude models (`claude-haiku-4-5`, `claude-sonnet-4-6`).
+- For online transcription (optional): an **OpenAI API key** with access to `whisper-1`.
+- For local-only transcription (recommended, no OpenAI key needed): a WhisperKit CoreML model in:
   `~/Library/Application Support/Blitztext/models/whisperkit/`
 
 The build also pulls one Swift Package dependency automatically:
@@ -80,9 +90,9 @@ For a local install into `/Applications`:
 
 The generated `.app` is ad-hoc signed for local development only. Do not treat it as a trusted redistributable binary. A public binary release would need Developer ID signing and notarization.
 
-On first launch, either paste your own OpenAI API key for online workflows or install a WhisperKit CoreML model for local transcription. Rewriting workflows still require OpenAI.
+On first launch, paste your **Anthropic API key** (Settings → Anthropic API Key) so the rewriting workflows work. For transcription, either install a WhisperKit CoreML model for local mode, or add an OpenAI key for online Whisper.
 
-For fully local transcription, install a WhisperKit CoreML model and enable **Sicherer Lokaler Modus** in the app.
+For fully local transcription, install a WhisperKit CoreML model and enable **Sicherer Lokaler Modus** in the app. Combined with the Anthropic key, this needs no OpenAI key at all.
 
 For a slower, more explicit walkthrough, see [docs/setup.md](docs/setup.md).
 
@@ -103,11 +113,11 @@ The preview has no custom backend.
 
 ```text
 Online transcription: Your Mac -> OpenAI Audio Transcriptions API
-Text rewriting:       Your Mac -> OpenAI Chat Completions API
+Text rewriting:       Your Mac -> Anthropic Messages API (Claude)
 Local transcription:  Your Mac -> WhisperKit/CoreML on device
 ```
 
-The app stores your OpenAI API key in the user's macOS Keychain.
+The app stores your API keys (OpenAI and/or Anthropic) in the user's macOS Keychain.
 
 Read [docs/privacy.md](docs/privacy.md) before using the preview with sensitive content.
 
@@ -117,7 +127,7 @@ Read [docs/privacy.md](docs/privacy.md) before using the preview with sensitive 
 BlitztextMac/
   App/          App lifecycle and paste handling
   Features/     Workflows, menu bar UI, settings
-  Services/     Recording, OpenAI calls, hotkeys, local storage
+  Services/     Recording, OpenAI/Anthropic calls, hotkeys, local storage
   Views/        Shared SwiftUI views
 build.sh        Local build script
 docs/           Setup, privacy, roadmap, preflight, landing page notes

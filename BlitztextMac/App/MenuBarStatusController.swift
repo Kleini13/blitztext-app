@@ -187,7 +187,7 @@ private enum MenuBarStatusIconRenderer {
                 values = [0.66, 0.84, 1.0, 0.8]
             case .dampfAblassen:
                 values = [1.0, 0.76, 0.94, 0.68]
-            case .emojiText:
+            case .emojiText, .concept:
                 values = [0.8, 0.92, 0.7, 1.0]
             }
             badgeOpacity = values[frame % values.count]
@@ -201,7 +201,7 @@ private enum MenuBarStatusIconRenderer {
                 values = [0.48, 0.68, 0.92, 0.84]
             case .dampfAblassen:
                 values = [0.84, 0.62, 0.9, 0.56]
-            case .emojiText:
+            case .emojiText, .concept:
                 values = [0.54, 0.76, 0.88, 0.68]
             }
             badgeOpacity = values[frame % values.count]
@@ -308,7 +308,7 @@ private enum MenuBarStatusIconRenderer {
                 [0.94, 0.4, 0.74, 1.0],
             ]
             return patterns[frame % patterns.count]
-        case .emojiText:
+        case .emojiText, .concept:
             let patterns: [[CGFloat]] = [
                 [1.0, 0.7, 0.46, 0.28],
                 [0.78, 1.0, 0.72, 0.42],
@@ -345,7 +345,7 @@ private enum MenuBarStatusIconRenderer {
                 [0.84, 0.48, 0.78, 1.0],
             ]
             return patterns[frame % patterns.count]
-        case .emojiText:
+        case .emojiText, .concept:
             let patterns: [[CGFloat]] = [
                 [1.0, 0.8, 0.58, 0.4],
                 [0.88, 1.0, 0.78, 0.54],
@@ -368,6 +368,8 @@ private enum MenuBarStatusIconRenderer {
             return "flame.fill"
         case .emojiText:
             return "face.smiling"
+        case .concept:
+            return "list.bullet.rectangle"
         }
     }
 

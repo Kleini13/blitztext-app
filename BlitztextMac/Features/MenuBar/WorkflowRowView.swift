@@ -5,6 +5,7 @@ struct WorkflowRowView: View {
     let enabled: Bool
     var customName: String? = nil
     var subtitle: String? = nil
+    var hotkeyLabel: String? = nil
     let action: () -> Void
 
     @State private var isHovered = false
@@ -39,7 +40,7 @@ struct WorkflowRowView: View {
                 Spacer()
 
                 // Hotkey badge
-                HotkeyBadge(label: type.hotkeyLabel, enabled: enabled)
+                HotkeyBadge(label: hotkeyLabel ?? type.hotkeyLabel, enabled: enabled)
                     .opacity(enabled ? 1 : 0.4)
             }
             .padding(.horizontal, 12)
@@ -72,7 +73,8 @@ struct HotkeyBadge: View {
 
     var body: some View {
         HStack(spacing: 3) {
-            ForEach(label.components(separatedBy: " + "), id: \.self) { key in
+            if !label.isEmpty {
+                ForEach(label.components(separatedBy: " + "), id: \.self) { key in
                 Text(key)
                     .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(keyTextColor)
@@ -87,6 +89,7 @@ struct HotkeyBadge: View {
                             .strokeBorder(keyStrokeColor, lineWidth: 0.8)
                     )
                     .shadow(color: keyShadowColor, radius: 1.2, y: 0.6)
+                }
             }
         }
     }

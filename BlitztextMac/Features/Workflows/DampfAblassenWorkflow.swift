@@ -16,12 +16,22 @@ final class DampfAblassenWorkflow: Workflow {
     private let settings: DampfAblassenSettings
     private let customTerms: [String]
     private let language: String
+    private let backend: TranscriptionBackend
+    private let localModelName: String
     private var processingTask: Task<Void, Never>?
 
-    init(settings: DampfAblassenSettings, customTerms: [String] = [], language: String = "de") {
+    init(
+        settings: DampfAblassenSettings,
+        customTerms: [String] = [],
+        language: String = "de",
+        backend: TranscriptionBackend = .remote,
+        localModelName: String = LocalTranscriptionService.recommendedFastModelName
+    ) {
         self.settings = settings
         self.customTerms = customTerms
         self.language = language
+        self.backend = backend
+        self.localModelName = localModelName
     }
 
     // MARK: - Recording State
@@ -72,7 +82,7 @@ final class DampfAblassenWorkflow: Workflow {
             return
         }
 
-        phase = .running("Wird transkribiert ...")
+        phase = .running(backend == .local ? "Wird lokal transkribiert ..." : "Wird transkribiert ...")
         let recordingDuration = recorder.lastRecordingDuration
         let vocabularyHints = recordingDuration >= 0.9 ? customTerms : []
 
@@ -82,11 +92,13 @@ final class DampfAblassenWorkflow: Workflow {
             }
 
             do {
-                // Phase 1: Whisper transcription
+                // Phase 1: Transkription (lokal via WhisperKit oder remote via OpenAI)
                 let rawText = try await TranscriptionService.transcribe(
                     audioURL: url,
+                    backend: backend,
                     customTerms: vocabularyHints,
-                    language: language
+                    language: language,
+                    localModelName: localModelName
                 )
                 let cleanedRawText = TranscriptionQualityService.cleanedTranscript(rawText)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleanedRawText, recordingDuration: recordingDuration) else {
