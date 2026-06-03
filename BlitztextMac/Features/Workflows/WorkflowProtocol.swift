@@ -9,6 +9,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
     case dampfAblassen
     case emojiText
     case concept
+    case translate
 
     var id: String { rawValue }
 
@@ -24,6 +25,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .dampfAblassen: return "Blitztext $%&!"
         case .emojiText: return "Blitztext :)"
         case .concept: return "Blitztext Konzept"
+        case .translate: return "Blitztext Translate"
         }
     }
 
@@ -35,6 +37,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .dampfAblassen: return "flame.fill"
         case .emojiText: return "face.smiling"
         case .concept: return "list.bullet.rectangle"
+        case .translate: return "globe"
         }
     }
 
@@ -46,6 +49,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .dampfAblassen: return "Frust rein. Entspannt raus."
         case .emojiText: return "Text rein. Emojis dazu."
         case .concept: return "Sprich frei. Konzept raus."
+        case .translate: return "Sprich. Übersetzt raus."
         }
     }
 
@@ -57,6 +61,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .dampfAblassen: return "fn + Option"
         case .emojiText: return "fn + Cmd"
         case .concept: return "fn + Ctrl + Opt"
+        case .translate: return "fn + Ctrl + Cmd"
         }
     }
 
@@ -68,6 +73,7 @@ enum WorkflowType: String, CaseIterable, Identifiable, Codable {
         case .dampfAblassen: return "orange"
         case .emojiText: return "cyan"
         case .concept: return "teal"
+        case .translate: return "indigo"
         }
     }
 }
@@ -138,6 +144,7 @@ struct AppSettings: Codable {
         WorkflowType.dampfAblassen.rawValue: .fnOption,
         WorkflowType.emojiText.rawValue: .fnCommand,
         WorkflowType.concept.rawValue: .fnControlOption,
+        WorkflowType.translate.rawValue: .fnControlCommand,
     ]
 
     /// Konfigurierte Kombi für einen Workflow (oder Default, sonst keine).
@@ -208,6 +215,39 @@ struct DampfAblassenSettings: Codable {
 struct ConceptSettings: Codable {
     /// Optionaler Zusatz-Kontext, der Claude beim Strukturieren hilft (z.B. "Projektkonzept", "Sitzungsnotiz").
     var context: String = ""
+    var customName: String = ""
+}
+
+enum TranslationLanguage: String, Codable, CaseIterable, Identifiable {
+    case english
+    case french
+    case italian
+    case german
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .english: return "Englisch"
+        case .french: return "Französisch"
+        case .italian: return "Italienisch"
+        case .german: return "Deutsch"
+        }
+    }
+
+    /// Name der Zielsprache für den Prompt (in der Zielsprache selbst formuliert).
+    var promptName: String {
+        switch self {
+        case .english: return "English"
+        case .french: return "French (français)"
+        case .italian: return "Italian (italiano)"
+        case .german: return "German (Deutsch)"
+        }
+    }
+}
+
+struct TranslateSettings: Codable {
+    var targetLanguage: TranslationLanguage = .english
     var customName: String = ""
 }
 

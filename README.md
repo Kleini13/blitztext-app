@@ -14,6 +14,7 @@ This fork (maintained by Atelier 26) adapts the original preview for a fully loc
 
 - **Rewriting runs on Claude (Anthropic) instead of OpenAI.** All text workflows (Blitztext+, $%&!, :), and the new Konzept mode) call the Anthropic Messages API.
 - **New mode "Blitztext Konzept"** — turns free, rambling speech into a clean, structured concept (title, grouped paragraphs, `–` bullet lists). Stays close to what was said; only organizes and smooths.
+- **New mode "Blitztext Translate"** — records speech and returns a clean, natural-sounding translation in a target language you pick in Settings (English default, plus French, Italian, German).
 - **Configurable hotkeys** — assign any allowed `fn`-combo (or none) to each mode in Settings → Tastenkürzel.
 - **Transcription can be fully local** (WhisperKit/CoreML) so no OpenAI key is needed; OpenAI stays optional for online Whisper.
 - **Paste fixes** — the recognized text is reliably pasted into the active app and stays on the clipboard for manual `Cmd+V`.
@@ -25,6 +26,7 @@ This fork (maintained by Atelier 26) adapts the original preview for a fully loc
 - **Blitztext $%&!**: turn frustrated speech into a calmer message.
 - **Blitztext :)**: add fitting emojis to dictated text.
 - **Blitztext Konzept**: turn free-form, rambling speech into a structured concept (title, paragraphs, bullet points).
+- **Blitztext Translate**: record speech and get a clean, natural translation in your chosen target language.
 
 ## Important Preview Notes
 
@@ -59,7 +61,7 @@ The intent is not to ship a one-click finished app. The intent is to make a real
 - macOS 14 or newer
 - Xcode 16 or newer (Swift 5.10), with Command Line Tools installed and selected for `xcodebuild`
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) to generate the Xcode project
-- For rewriting (Blitztext+, $%&!, :), Konzept): an **Anthropic API key** with access to Claude models (`claude-haiku-4-5`, `claude-sonnet-4-6`).
+- For the AI text modes (Blitztext+, $%&!, :), Konzept, Translate): an **Anthropic API key** with access to Claude models (`claude-haiku-4-5`, `claude-sonnet-4-6`).
 - For online transcription (optional): an **OpenAI API key** with access to `whisper-1`.
 - For local-only transcription (recommended, no OpenAI key needed): a WhisperKit CoreML model in:
   `~/Library/Application Support/Blitztext/models/whisperkit/`

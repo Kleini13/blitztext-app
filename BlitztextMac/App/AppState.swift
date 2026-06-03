@@ -58,6 +58,9 @@ final class AppState {
     var conceptSettings: ConceptSettings {
         didSet { saveSettings() }
     }
+    var translateSettings: TranslateSettings {
+        didSet { saveSettings() }
+    }
 
     // Hotkeys
     let hotkeyService = HotkeyService()
@@ -89,6 +92,7 @@ final class AppState {
         self.dampfAblassenSettings = Self.loadDampfAblassenSettings()
         self.emojiTextSettings = Self.loadEmojiTextSettings()
         self.conceptSettings = Self.loadConceptSettings()
+        self.translateSettings = Self.loadTranslateSettings()
         refreshAccessibilityPermission()
         autoSelectFastLocalModelIfNeeded()
         prewarmLocalTranscriptionIfNeeded()
@@ -142,6 +146,9 @@ final class AppState {
         case .concept:
             let name = conceptSettings.customName.trimmingCharacters(in: .whitespaces)
             return name.isEmpty ? type.displayName : name
+        case .translate:
+            let name = translateSettings.customName.trimmingCharacters(in: .whitespaces)
+            return name.isEmpty ? type.displayName : name
         default:
             return type.displayName
         }
@@ -159,7 +166,7 @@ final class AppState {
             return "Online: Whisper über OpenAI."
         case .localTranscription:
             return "Nur lokal. Kein Server."
-        case .textImprover, .dampfAblassen, .emojiText, .concept:
+        case .textImprover, .dampfAblassen, .emojiText, .concept, .translate:
             if !hasAnthropicKey {
                 return "Anthropic API Key fehlt."
             }
@@ -282,6 +289,18 @@ final class AppState {
             configureWorkflowHandlers(workflow)
             activeWorkflow = workflow
             workflow.start()
+
+        case .translate:
+            let workflow = TranslateWorkflow(
+                settings: translateSettings,
+                customTerms: textImprovementSettings.customTerms,
+                language: transcriptionSettings.language,
+                backend: appSettings.secureLocalModeEnabled ? .local : .remote,
+                localModelName: selectedLocalModelName
+            )
+            configureWorkflowHandlers(workflow)
+            activeWorkflow = workflow
+            workflow.start()
         }
 
         page = source.presentsWorkflowPage ? .workflow : .main
@@ -295,7 +314,7 @@ final class AppState {
             return appSettings.secureLocalModeEnabled
                 ? selectedLocalModelIsInstalled
                 : KeychainService.isConfigured
-        case .textImprover, .dampfAblassen, .emojiText, .concept:
+        case .textImprover, .dampfAblassen, .emojiText, .concept, .translate:
             // Rewrite = Transkription (lokal oder remote) + Claude. Funktioniert auch im lokalen Modus.
             return canTranscribe && hasAnthropicKey
         }
@@ -446,7 +465,8 @@ final class AppState {
             textImprovement: textImprovementSettings,
             dampfAblassen: dampfAblassenSettings,
             emojiText: emojiTextSettings,
-            concept: conceptSettings
+            concept: conceptSettings,
+            translate: translateSettings
         )
         if let data = try? JSONEncoder().encode(container) {
             try? data.write(to: Self.settingsURL)
@@ -475,6 +495,10 @@ final class AppState {
 
     private static func loadConceptSettings() -> ConceptSettings {
         loadContainer()?.concept ?? ConceptSettings()
+    }
+
+    private static func loadTranslateSettings() -> TranslateSettings {
+        loadContainer()?.translate ?? TranslateSettings()
     }
 
     private static func loadContainer() -> SettingsContainer? {
@@ -684,6 +708,7 @@ private struct SettingsContainer: Codable {
     var dampfAblassen: DampfAblassenSettings?
     var emojiText: EmojiTextSettings?
     var concept: ConceptSettings?
+    var translate: TranslateSettings?
 }
 
 // MARK: - Notification for Popover Dismissal

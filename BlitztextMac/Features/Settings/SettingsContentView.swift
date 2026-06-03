@@ -839,6 +839,29 @@ struct CustomizeSettingsView: View {
                 }
             }
 
+            // MARK: Blitztext Translate
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: "Blitztext Translate")
+
+                Text("Nimmt Gesprochenes auf und gibt eine saubere, nat\u{00FC}rlich klingende \u{00DC}bersetzung in der gew\u{00E4}hlten Sprache aus.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Zielsprache")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+
+                    Picker("", selection: $appState.translateSettings.targetLanguage) {
+                        ForEach(TranslationLanguage.allCases) { lang in
+                            Text(lang.displayName).tag(lang)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+
             // MARK: Eigennamen
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: "Eigennamen")

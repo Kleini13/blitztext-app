@@ -13,6 +13,10 @@ maintained by Atelier 26. Entries below describe what differs from the upstream 
   into a clean, structured concept: a short title, grouped paragraphs, and `–` bullet
   lists, separated by blank lines. Plain text (no Markdown), stays close to what was
   said (organize and smooth only, no invented content). Optional context hint in Settings.
+- **New mode "Blitztext Translate" (`TranslateWorkflow`)** — records speech, transcribes
+  it, then translates into a target language via Claude with grammar/structure cleanup so
+  it reads naturally. Target language is selectable in Settings (English default, plus
+  French, Italian, German). Default hotkey `fn + Control + Command`.
 - **Configurable hotkeys** — each mode can be assigned an allowed `fn`-combination
   (or "Kein Hotkey") in Settings → Tastenkürzel. Conflicts are resolved automatically.
   Implemented via `HotkeyCombo` and a data-driven `HotkeyService`; menu/badges show the

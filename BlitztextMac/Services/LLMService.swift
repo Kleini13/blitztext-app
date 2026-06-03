@@ -116,6 +116,19 @@ enum LLMService {
         )
     }
 
+    static func translate(
+        text: String,
+        settings: TranslateSettings,
+        model: RewriteModel = .rageMode
+    ) async throws -> String {
+        try await complete(
+            text: text,
+            systemPrompt: buildTranslateSystemPrompt(target: settings.targetLanguage),
+            model: model,
+            temperature: 0.3
+        )
+    }
+
     static func addEmojis(
         text: String,
         settings: EmojiTextSettings,
@@ -206,6 +219,19 @@ enum LLMService {
         }
 
         return prompt
+    }
+
+    private static func buildTranslateSystemPrompt(target: TranslationLanguage) -> String {
+        """
+        Du erhältst ein frei gesprochenes Transkript. Übersetze es nach \(target.promptName).
+
+        Regeln:
+        - Gib die Übersetzung in natürlicher, idiomatischer Sprache aus – so, wie ein Mensch es geschrieben hätte, nicht wörtlich Wort für Wort.
+        - Korrigiere Grammatik, entferne Füllwörter, Versprecher und Wiederholungen, und strukturiere den Text sauber (sinnvolle Sätze und Absätze).
+        - Bewahre Bedeutung, Tonfall und Absicht des Originals.
+        - Erfinde keine Inhalte dazu.
+        - Gib NUR die fertige Übersetzung aus, keine Einleitung, keine Erklärungen, keine Anmerkungen.
+        """
     }
 
     private static func buildEmojiSystemPrompt(density: EmojiTextSettings.EmojiDensity) -> String {
