@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(AppKit)
 import AppKit
+#endif
 import Observation
 
 @Observable
@@ -25,7 +27,7 @@ final class TranslateWorkflow: Workflow {
         customTerms: [String] = [],
         language: String = "de",
         backend: TranscriptionBackend = .remote,
-        localModelName: String = LocalTranscriptionService.recommendedFastModelName
+        localModelName: String = ""
     ) {
         self.settings = settings
         self.customTerms = customTerms

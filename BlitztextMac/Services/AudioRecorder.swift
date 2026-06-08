@@ -18,6 +18,13 @@ final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
             .appendingPathComponent("blitztext-\(UUID().uuidString).m4a")
     }
 
+    /// Fragt unter iOS die Mikrofon-Berechtigung an (No-op auf macOS).
+    static func requestMicrophonePermission() {
+        #if os(iOS)
+        AVAudioApplication.requestRecordPermission { _ in }
+        #endif
+    }
+
     func startRecording() {
         errorMessage = nil
         lastRecordingDuration = 0
@@ -25,6 +32,17 @@ final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
         if let currentFileURL {
             try? FileManager.default.removeItem(at: currentFileURL)
         }
+
+        #if os(iOS)
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+            try session.setActive(true)
+        } catch {
+            errorMessage = "Audio-Session konnte nicht aktiviert werden: \(error.localizedDescription)"
+            return
+        }
+        #endif
 
         let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),

@@ -53,11 +53,16 @@ enum TranscriptionService {
         case .remote:
             return try await transcribe(audioURL: audioURL, customTerms: customTerms, language: language)
         case .local:
+            #if canImport(WhisperKit)
             return try await LocalTranscriptionService.shared.transcribe(
                 audioURL: audioURL,
                 language: language,
                 modelName: localModelName
             )
+            #else
+            // Lokale Transkription ist auf dieser Plattform nicht verfügbar (online nutzen).
+            return try await transcribe(audioURL: audioURL, customTerms: customTerms, language: language)
+            #endif
         }
     }
 

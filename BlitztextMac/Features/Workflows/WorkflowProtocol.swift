@@ -1,4 +1,83 @@
 import Foundation
+#if canImport(AppKit)
+import AppKit
+#endif
+
+// MARK: - Hotkey Mode
+
+enum HotkeyMode: String, Codable, CaseIterable, Identifiable {
+    case hold    // Tasten halten = aufnehmen, loslassen = stoppen
+    case toggle  // Einmal drücken = starten, nochmal/Escape = stoppen
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .hold: return "Halten"
+        case .toggle: return "Drücken"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .hold: return "Tasten halten zum Aufnehmen, loslassen zum Stoppen"
+        case .toggle: return "Einmal drücken zum Starten, nochmal oder Escape zum Stoppen"
+        }
+    }
+}
+
+// MARK: - Hotkey Combo (plattformneutral; flags nur auf macOS)
+
+/// Zuweisbare Tastenkombinationen (alle fn-basiert, da die Erkennung über Modifier-Flags läuft).
+enum HotkeyCombo: String, Codable, CaseIterable, Identifiable {
+    case none
+    case fnShift, fnControl, fnOption, fnCommand
+    case fnShiftControl, fnShiftOption, fnShiftCommand
+    case fnControlOption, fnControlCommand, fnOptionCommand
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none: return "Kein Hotkey"
+        case .fnShift: return "fn + Shift"
+        case .fnControl: return "fn + Control"
+        case .fnOption: return "fn + Option"
+        case .fnCommand: return "fn + Command"
+        case .fnShiftControl: return "fn + Shift + Control"
+        case .fnShiftOption: return "fn + Shift + Option"
+        case .fnShiftCommand: return "fn + Shift + Command"
+        case .fnControlOption: return "fn + Control + Option"
+        case .fnControlCommand: return "fn + Control + Command"
+        case .fnOptionCommand: return "fn + Option + Command"
+        }
+    }
+
+    /// Kompakte Anzeige fürs Menü.
+    var shortLabel: String {
+        displayName.replacingOccurrences(of: "Control", with: "Ctrl")
+            .replacingOccurrences(of: "Option", with: "Opt")
+            .replacingOccurrences(of: "Command", with: "Cmd")
+    }
+
+    #if canImport(AppKit)
+    var flags: NSEvent.ModifierFlags? {
+        switch self {
+        case .none: return nil
+        case .fnShift: return [.function, .shift]
+        case .fnControl: return [.function, .control]
+        case .fnOption: return [.function, .option]
+        case .fnCommand: return [.function, .command]
+        case .fnShiftControl: return [.function, .shift, .control]
+        case .fnShiftOption: return [.function, .shift, .option]
+        case .fnShiftCommand: return [.function, .shift, .command]
+        case .fnControlOption: return [.function, .control, .option]
+        case .fnControlCommand: return [.function, .control, .command]
+        case .fnOptionCommand: return [.function, .option, .command]
+        }
+    }
+    #endif
+}
 
 // MARK: - Workflow Types
 
@@ -132,7 +211,7 @@ struct AppSettings: Codable {
     var hotkeyMode: HotkeyMode = .hold
     var hasSeenOnboarding: Bool = false
     var secureLocalModeEnabled: Bool = false
-    var selectedLocalTranscriptionModelName: String = LocalTranscriptionService.recommendedFastModelName
+    var selectedLocalTranscriptionModelName: String = ""
     var hasAutoSelectedFastLocalModel: Bool = false
     /// Pro Workflow (rawValue) eine zugewiesene Tastenkombi.
     var hotkeyBindings: [String: HotkeyCombo] = AppSettings.defaultHotkeyBindings
@@ -156,7 +235,7 @@ struct AppSettings: Codable {
         hotkeyMode: HotkeyMode = .hold,
         hasSeenOnboarding: Bool = false,
         secureLocalModeEnabled: Bool = false,
-        selectedLocalTranscriptionModelName: String = LocalTranscriptionService.recommendedFastModelName,
+        selectedLocalTranscriptionModelName: String = "",
         hasAutoSelectedFastLocalModel: Bool = false,
         hotkeyBindings: [String: HotkeyCombo] = AppSettings.defaultHotkeyBindings
     ) {
@@ -185,7 +264,7 @@ struct AppSettings: Codable {
         selectedLocalTranscriptionModelName = try container.decodeIfPresent(
             String.self,
             forKey: .selectedLocalTranscriptionModelName
-        ) ?? LocalTranscriptionService.recommendedFastModelName
+        ) ?? ""
         hasAutoSelectedFastLocalModel = try container.decodeIfPresent(
             Bool.self,
             forKey: .hasAutoSelectedFastLocalModel

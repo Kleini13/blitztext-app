@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: app.blitztext
   deploymentTarget:
     macOS: "14.0"
+    iOS: "17.0"
   xcodeVersion: "16.0"
   generateEmptyDirectories: true
 
@@ -54,3 +55,30 @@ targets:
         com.apple.security.app-sandbox: false
         com.apple.security.device.audio-input: true
         com.apple.security.network.client: true
+
+  BlitztextiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: Services
+        excludes:
+          - AccessibilityPermissionService.swift
+          - BlitztextInstallLocationService.swift
+          - HotkeyService.swift
+          - BlitztextCleanupService.swift
+          - LaunchAtLoginService.swift
+          - LocalTranscriptionService.swift
+          - AppSupportPaths.swift
+      - path: Features/Workflows
+      - path: Views
+      - path: iOS
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.blitztext.ios
+        PRODUCT_NAME: Blitztext
+        INFOPLIST_FILE: iOS/Info.plist
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO

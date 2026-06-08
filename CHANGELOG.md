@@ -9,6 +9,14 @@ maintained by Atelier 26. Entries below describe what differs from the upstream 
 ## [Unreleased] — Atelier 26 fork
 
 ### Added
+- **Experimental iOS app target (`BlitztextiOS`)** — a standalone SwiftUI app that reuses
+  the shared core (recording, OpenAI/Anthropic services, workflows). Record → transcribe →
+  optional Claude rewrite/concept/translate → result on screen with Copy and Share.
+  V1 is **online-only** (OpenAI Whisper + Claude); on-device WhisperKit on iOS is deferred
+  because the current WhisperKit package pulls a non-iOS transitive dependency (Vapor).
+  The cross-platform core was made platform-clean: `HotkeyMode`/`HotkeyCombo` moved to a
+  shared file (AppKit-only `flags` guarded), workflow AppKit imports guarded, and
+  `AudioRecorder` gained iOS `AVAudioSession` setup + microphone permission.
 - **New mode "Blitztext Konzept" (`ConceptWorkflow`)** — turns free, rambling speech
   into a clean, structured concept: a short title, grouped paragraphs, and `–` bullet
   lists, separated by blank lines. Plain text (no Markdown), stays close to what was

@@ -18,6 +18,7 @@ This fork (maintained by Atelier 26) adapts the original preview for a fully loc
 - **Configurable hotkeys** — assign any allowed `fn`-combo (or none) to each mode in Settings → Tastenkürzel.
 - **Transcription can be fully local** (WhisperKit/CoreML) so no OpenAI key is needed; OpenAI stays optional for online Whisper.
 - **Paste fixes** — the recognized text is reliably pasted into the active app and stays on the clipboard for manual `Cmd+V`.
+- **Experimental iOS app** (`BlitztextiOS` target) — standalone SwiftUI app: record → transcribe → optional Claude rewrite/concept/translate → Copy/Share. V1 is online-only (OpenAI Whisper + Claude); on-device WhisperKit on iOS is not enabled yet (the current WhisperKit package pulls Vapor, which isn't iOS-compatible).
 
 ## What It Does
 

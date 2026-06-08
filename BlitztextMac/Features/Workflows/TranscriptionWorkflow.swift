@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(AppKit)
 import AppKit
+#endif
 import Observation
 import OSLog
 
@@ -31,7 +33,7 @@ final class TranscriptionWorkflow: Workflow {
         customTerms: [String] = [],
         language: String = "de",
         backend: TranscriptionBackend = .remote,
-        localModelName: String = LocalTranscriptionService.recommendedFastModelName
+        localModelName: String = ""
     ) {
         self.type = type
         self.customTerms = customTerms
@@ -104,11 +106,19 @@ final class TranscriptionWorkflow: Workflow {
                         language: requestLanguage
                     )
                 case .local:
+                    #if canImport(WhisperKit)
                     text = try await LocalTranscriptionService.shared.transcribe(
                         audioURL: url,
                         language: requestLanguage,
                         modelName: localModelName
                     )
+                    #else
+                    text = try await TranscriptionService.transcribe(
+                        audioURL: url,
+                        customTerms: vocabularyHints,
+                        language: requestLanguage
+                    )
+                    #endif
                 }
                 try Task.checkCancellation()
 

@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(AppKit)
 import AppKit
+#endif
 import Observation
 
 @Observable
@@ -23,7 +25,7 @@ final class TextImprovementWorkflow: Workflow {
         settings: TextImprovementSettings,
         language: String = "de",
         backend: TranscriptionBackend = .remote,
-        localModelName: String = LocalTranscriptionService.recommendedFastModelName
+        localModelName: String = ""
     ) {
         self.settings = settings
         self.language = language
