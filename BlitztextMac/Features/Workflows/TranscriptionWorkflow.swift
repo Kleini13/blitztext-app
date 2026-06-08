@@ -113,7 +113,7 @@ final class TranscriptionWorkflow: Workflow {
                 try Task.checkCancellation()
 
                 let responseReceivedAt = Date()
-                let cleaned = TranscriptionQualityService.cleanedTranscript(text)
+                let cleaned = TranscriptionQualityService.cleanedRawTranscript(text)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleaned, recordingDuration: recordingDuration) else {
                     transcriptionLogger.info(
                         "Transcription rejected short artifact after \(elapsedMilliseconds(since: stopTime)) ms"

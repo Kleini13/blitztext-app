@@ -100,7 +100,7 @@ final class ConceptWorkflow: Workflow {
                     language: language,
                     localModelName: localModelName
                 )
-                let cleanedRawText = TranscriptionQualityService.cleanedTranscript(rawText)
+                let cleanedRawText = TranscriptionQualityService.cleanedRawTranscript(rawText)
                 guard !TranscriptionQualityService.isLikelyArtifact(cleanedRawText, recordingDuration: recordingDuration) else {
                     phase = .error("Keine Aufnahme erkannt.")
                     return

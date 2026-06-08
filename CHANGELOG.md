@@ -35,6 +35,10 @@ maintained by Atelier 26. Entries below describe what differs from the upstream 
   (the previous "Im lokalen Modus pausiert" gating was removed).
 
 ### Fixed
+- **Whisper end-of-clip hallucinations removed** — known phrases that Whisper appends on
+  trailing silence (e.g. "Vielen Dank.", "Untertitel der Amara.org-Community", "Thank you.")
+  are stripped from the raw transcript via `cleanedRawTranscript`. Applied only to the
+  transcript, never to the LLM output, and never when the phrase is the entire utterance.
 - **Auto-paste target resolution** — if no target app was captured at start (e.g. the
   popover had focus), the active app is now used at paste time, with retries until focus
   returns. Previously paste could abort silently (`target == nil`).
