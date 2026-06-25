@@ -9,6 +9,11 @@ maintained by Atelier 26. Entries below describe what differs from the upstream 
 ## [Unreleased] — Atelier 26 fork
 
 ### Added
+- **Configurable German spelling (`GermanSpelling`)** — choose "Deutsch (mit ß)" or
+  "Deutsch Schweiz (ss statt ß)" in Settings. Applies to all AI text outputs and the
+  transcription: Claude is instructed to use Swiss spelling, and every `ß` is
+  deterministically replaced with `ss` as a guarantee. Also added "Deutsch (Schweiz)"
+  as a dedicated target language in Blitztext Translate.
 - **Experimental iOS app target (`BlitztextiOS`)** — a standalone SwiftUI app that reuses
   the shared core (recording, OpenAI/Anthropic services, workflows). Record → transcribe →
   optional Claude rewrite/concept/translate → result on screen with Copy and Share.

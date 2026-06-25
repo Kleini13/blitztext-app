@@ -47,6 +47,18 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Picker("Schreibweise", selection: $store.germanSpelling) {
+                        ForEach(GermanSpelling.allCases) { spelling in
+                            Text(spelling.displayName).tag(spelling)
+                        }
+                    }
+                } header: {
+                    Text("Deutsche Schreibweise")
+                } footer: {
+                    Text("Gilt für alle KI-Texte und die Transkription. Schweiz ersetzt jedes ß durch ss.")
+                }
+
+                Section {
                     Text("Lokale On-Device-Transkription (WhisperKit) ist in dieser iOS-Vorschau noch nicht aktiv. Aktuell läuft die Transkription online über OpenAI.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

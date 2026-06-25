@@ -862,6 +862,23 @@ struct CustomizeSettingsView: View {
                 }
             }
 
+            // MARK: Deutsche Schreibweise
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(text: "Deutsche Schreibweise")
+
+                Text("Gilt für alle KI-Textausgaben und die Transkription. Schweiz ersetzt jedes \u{00DF} durch ss.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Picker("", selection: $appState.appSettings.germanSpelling) {
+                    ForEach(GermanSpelling.allCases) { spelling in
+                        Text(spelling.displayName).tag(spelling)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
             // MARK: Eigennamen
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: "Eigennamen")

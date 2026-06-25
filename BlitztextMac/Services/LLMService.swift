@@ -125,7 +125,8 @@ enum LLMService {
             text: text,
             systemPrompt: buildTranslateSystemPrompt(target: settings.targetLanguage),
             model: model,
-            temperature: 0.3
+            temperature: 0.3,
+            spellingOverride: settings.targetLanguage.germanSpelling
         )
     }
 
@@ -146,16 +147,19 @@ enum LLMService {
         text: String,
         systemPrompt: String,
         model: RewriteModel,
-        temperature: Double
+        temperature: Double,
+        spellingOverride: GermanSpelling? = nil
     ) async throws -> String {
         guard let apiKey = KeychainService.load(key: .anthropicAPIKey) else {
             throw LLMError.notConfigured
         }
 
+        let spelling = spellingOverride ?? GermanSpelling.current
+
         let payload = AnthropicMessagesRequest(
             model: model.rawValue,
             maxTokens: maxTokens,
-            system: systemPrompt,
+            system: systemPrompt + spelling.promptInstruction,
             messages: [
                 .init(role: "user", content: text),
             ],
@@ -189,7 +193,7 @@ enum LLMService {
             throw LLMError.noContent
         }
 
-        return content
+        return spelling.normalized(content)
     }
 
     private static func anthropicErrorMessage(from data: Data) -> String? {

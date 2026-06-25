@@ -19,16 +19,25 @@ final class BlitztextStore {
     var targetLanguage: TranslationLanguage {
         didSet { defaults.set(targetLanguage.rawValue, forKey: Keys.targetLanguage) }
     }
+    var germanSpelling: GermanSpelling {
+        didSet {
+            defaults.set(germanSpelling.rawValue, forKey: Keys.germanSpelling)
+            GermanSpelling.current = germanSpelling
+        }
+    }
 
     private var activeWorkflow: (any Workflow)?
     private let defaults = UserDefaults.standard
 
     private enum Keys {
         static let targetLanguage = "ios.targetLanguage"
+        static let germanSpelling = "ios.germanSpelling"
     }
 
     init() {
         targetLanguage = TranslationLanguage(rawValue: defaults.string(forKey: Keys.targetLanguage) ?? "") ?? .english
+        germanSpelling = GermanSpelling(rawValue: defaults.string(forKey: Keys.germanSpelling) ?? "") ?? .standard
+        GermanSpelling.current = germanSpelling
     }
 
     // MARK: - Keys / Verfügbarkeit

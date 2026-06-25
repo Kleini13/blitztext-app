@@ -41,6 +41,7 @@ final class AppState {
             saveSettings()
             prewarmLocalTranscriptionIfNeeded()
             applyHotkeyBindings()
+            GermanSpelling.current = appSettings.germanSpelling
         }
     }
     var transcriptionSettings: TranscriptionSettings {
@@ -97,6 +98,7 @@ final class AppState {
         autoSelectFastLocalModelIfNeeded()
         prewarmLocalTranscriptionIfNeeded()
         applyHotkeyBindings()
+        GermanSpelling.current = appSettings.germanSpelling
     }
 
     // MARK: - Hotkeys

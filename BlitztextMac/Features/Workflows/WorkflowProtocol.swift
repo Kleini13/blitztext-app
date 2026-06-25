@@ -215,6 +215,8 @@ struct AppSettings: Codable {
     var hasAutoSelectedFastLocalModel: Bool = false
     /// Pro Workflow (rawValue) eine zugewiesene Tastenkombi.
     var hotkeyBindings: [String: HotkeyCombo] = AppSettings.defaultHotkeyBindings
+    /// Deutsche Schreibweise für alle KI-Textausgaben (Standard mit ß / Schweiz mit ss).
+    var germanSpelling: GermanSpelling = .standard
 
     static let defaultHotkeyBindings: [String: HotkeyCombo] = [
         WorkflowType.transcription.rawValue: .fnShift,
@@ -237,7 +239,8 @@ struct AppSettings: Codable {
         secureLocalModeEnabled: Bool = false,
         selectedLocalTranscriptionModelName: String = "",
         hasAutoSelectedFastLocalModel: Bool = false,
-        hotkeyBindings: [String: HotkeyCombo] = AppSettings.defaultHotkeyBindings
+        hotkeyBindings: [String: HotkeyCombo] = AppSettings.defaultHotkeyBindings,
+        germanSpelling: GermanSpelling = .standard
     ) {
         self.hotkeyMode = hotkeyMode
         self.hasSeenOnboarding = hasSeenOnboarding
@@ -245,6 +248,7 @@ struct AppSettings: Codable {
         self.selectedLocalTranscriptionModelName = selectedLocalTranscriptionModelName
         self.hasAutoSelectedFastLocalModel = hasAutoSelectedFastLocalModel
         self.hotkeyBindings = hotkeyBindings
+        self.germanSpelling = germanSpelling
     }
 
     enum CodingKeys: String, CodingKey {
@@ -254,6 +258,7 @@ struct AppSettings: Codable {
         case selectedLocalTranscriptionModelName
         case hasAutoSelectedFastLocalModel
         case hotkeyBindings
+        case germanSpelling
     }
 
     init(from decoder: Decoder) throws {
@@ -272,6 +277,43 @@ struct AppSettings: Codable {
         // Gespeicherte Zuweisungen über die Defaults legen, damit neue Workflows immer eine Default-Kombi haben.
         let stored = try container.decodeIfPresent([String: HotkeyCombo].self, forKey: .hotkeyBindings) ?? [:]
         hotkeyBindings = AppSettings.defaultHotkeyBindings.merging(stored) { _, new in new }
+        germanSpelling = try container.decodeIfPresent(GermanSpelling.self, forKey: .germanSpelling) ?? .standard
+    }
+}
+
+// MARK: - Deutsche Schreibweise
+
+enum GermanSpelling: String, Codable, CaseIterable, Identifiable {
+    case standard   // Deutschland/Österreich – mit ß
+    case swiss      // Schweiz – ss statt ß
+
+    var id: String { rawValue }
+
+    /// App-weite aktuelle Einstellung, von der UI gesetzt (für KI-Modi und Transkription).
+    nonisolated(unsafe) static var current: GermanSpelling = .standard
+
+    var displayName: String {
+        switch self {
+        case .standard: return "Deutsch (mit ß)"
+        case .swiss: return "Deutsch Schweiz (ss statt ß)"
+        }
+    }
+
+    /// Zusatz für den Claude-Prompt.
+    var promptInstruction: String {
+        switch self {
+        case .standard: return ""
+        case .swiss:
+            return "\n\nWichtig: Verwende durchgehend Schweizer Rechtschreibung. Schreibe niemals das Zeichen «ß», sondern immer «ss»."
+        }
+    }
+
+    /// Deterministische Nachbearbeitung – garantiert kein ß in der Schweizer Variante.
+    func normalized(_ text: String) -> String {
+        guard self == .swiss else { return text }
+        return text
+            .replacingOccurrences(of: "ß", with: "ss")
+            .replacingOccurrences(of: "ẞ", with: "SS")
     }
 }
 
@@ -302,6 +344,7 @@ enum TranslationLanguage: String, Codable, CaseIterable, Identifiable {
     case french
     case italian
     case german
+    case germanSwiss
 
     var id: String { rawValue }
 
@@ -311,6 +354,7 @@ enum TranslationLanguage: String, Codable, CaseIterable, Identifiable {
         case .french: return "Französisch"
         case .italian: return "Italienisch"
         case .german: return "Deutsch"
+        case .germanSwiss: return "Deutsch (Schweiz)"
         }
     }
 
@@ -321,6 +365,15 @@ enum TranslationLanguage: String, Codable, CaseIterable, Identifiable {
         case .french: return "French (français)"
         case .italian: return "Italian (italiano)"
         case .german: return "German (Deutsch)"
+        case .germanSwiss: return "Swiss Standard German (Schweizer Hochdeutsch – verwende «ss» statt «ß»)"
+        }
+    }
+
+    /// Erzwungene Schreibweise abhängig von der Zielsprache (für die Nachbearbeitung).
+    var germanSpelling: GermanSpelling {
+        switch self {
+        case .germanSwiss: return .swiss
+        default: return .standard
         }
     }
 }
