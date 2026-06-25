@@ -686,18 +686,20 @@ struct CustomizeSettingsView: View {
                         HStack(spacing: 8) {
                             Text(appState.displayName(for: type))
                                 .font(.system(size: 11.5, weight: .medium))
-                                .frame(width: 130, alignment: .leading)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            Spacer(minLength: 8)
                             Picker("", selection: Binding(
                                 get: { appState.appSettings.combo(for: type) },
                                 set: { appState.setHotkeyCombo($0, for: type) }
                             )) {
                                 ForEach(HotkeyCombo.allCases) { combo in
-                                    Text(combo.displayName).tag(combo)
+                                    Text(combo.shortLabel).tag(combo)
                                 }
                             }
                             .labelsHidden()
                             .controlSize(.small)
-                            Spacer()
+                            .fixedSize()
                         }
                     }
                 }
@@ -858,7 +860,8 @@ struct CustomizeSettingsView: View {
                             Text(lang.displayName).tag(lang)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .pickerStyle(.menu)
                 }
             }
 
@@ -876,7 +879,8 @@ struct CustomizeSettingsView: View {
                         Text(spelling.displayName).tag(spelling)
                     }
                 }
-                .pickerStyle(.segmented)
+                .labelsHidden()
+                .pickerStyle(.menu)
             }
 
             // MARK: Eigennamen
